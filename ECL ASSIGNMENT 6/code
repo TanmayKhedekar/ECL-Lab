@@ -1,1 +1,63 @@
+Python Code : 
+#include <your_edge_impulse_project_name_inferencing.h> 
+#include <PDM.h>                                        
+ 
+const int SAMPLE_RATE = 16000; // Or the sample rate you used in Edge Impulse const int FRAME_LENGTH_MS = 20;  // Example: Adjust to match your impulse window const int BUFFER_LENGTH = (SAMPLE_RATE * FRAME_LENGTH_MS) / 1000; short audio_buffer[BUFFER_LENGTH]; 
+volatile int buffer_fill_ptr = 0; bool audio_ready = false; 
+// Instance of the inference class 
+EI_CLASSIFIER_TFLITE_TENSORFLOW_LITE model; 
+// PDM buffer and read index 
+static short pdm_buffer[2048]; // Adjust size as needed static volatile int pdm_buffer_index = 0; 
+ 
+void onPDMData() { 
+  // Query the number of bytes available from the PDM microphone   int bytesAvailable = PDM.available(); 
+  // Read as many bytes as we can 
+  PDM.read(pdm_buffer + pdm_buffer_index, bytesAvailable);   pdm_buffer_index += bytesAvailable / 2; // 2 bytes per sample (short) 
+  // If we have enough data, copy it to the inference buffer   if (pdm_buffer_index >= BUFFER_LENGTH) {     for (int i = 0; i < BUFFER_LENGTH; i++) {       audio_buffer[i] = pdm_buffer[i]; 
+    } 
+    audio_ready = true;     pdm_buffer_index = 0; // Reset for next buffer 
+  } 
+} 
+void setup() { 
+  Serial.begin(115200); 
+  Serial.println("Edge Impulse Keyword Spotting (Nano BLE Sense)"); 
+  PDM.onReceive(onPDMData); 
+  PDM.begin(1, SAMPLE_RATE); // 1 channel, your sample rate 
+  Serial.print("Buffer Length: "); 
+  Serial.println(BUFFER_LENGTH); 
+} 
+ 
+void loop() {   if (audio_ready) { 
+    Serial.println("Audio buffer ready. Running inference...");     audio_ready = false; 
+    // Run inference 
+    signal_t signal;     signal.total_length = BUFFER_LENGTH;     signal.get_data = [] (size_t offset, size_t length, float *out_ptr) {       for (size_t i = 0; i < length; i++) {         out_ptr[i] = audio_buffer[offset + i] / 32768.0f; // Normalize to -1.0 to 1.0 
+      } 
+      return (int)length; 
+    }; 
+    ei_impulse_result_t result; 
+    EI_IMPULSE_ERROR r = model.classify(&signal, &result);     if (r == EI_IMPULSE_OK) { 
+      Serial.println("Inference Result:"); 
+      for (size_t i = 0; i < EI_CLASSIFIER_LABEL_COUNT; i++) {         Serial.printf("  %s: %.2f\r\n", ei_classifier_inferencing_categories[i], result.classification[i].value); 
+        
+ // **Adapt this part to detect your keywords** 
+        if (result.classification[i].value > 0.8) { // Adjust threshold 
+          if (strcmp(ei_classifier_inferencing_categories[i], "hellomit") == 0) { 
+            Serial.println("Keyword 'hellomit' detected!"); 
+            // Add your action for "hellomit" here 
+          } else if (strcmp(ei_classifier_inferencing_categories[i], "oksoc") == 0) { 
+            Serial.println("Keyword 'oksoc' detected!"); 
+            // Add your action for "oksoc" here 
+          } else if (strcmp(ei_classifier_inferencing_categories[i], "noise") == 0) { 
+            Serial.println("Keyword 'nise' detected!"); 
+            // Add your action for "nise" here 
+          } else if (strcmp(ei_classifier_inferencing_categories[i], "noise") == 0) {             // Optionally handle the "noise" class 
+          } 
+        } 
+      } 
+    } else { 
+      Serial.printf("ERR: Failed to run classifier (%d)\r\n", r); 
+    } 
+  } 
+  delay(1); // Small delay to prevent busy-waiting 
+} 
 
