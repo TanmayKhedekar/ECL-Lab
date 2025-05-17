@@ -1,0 +1,61 @@
+Title: “Hello World” to Raspberry Pi
+
+
+Python Code to display ‘Hello World’ on LCD:
+import smbus
+import time
+ 
+# Define the I2C address of the LCD
+LCD_ADDRESS = 0x3E
+RGB_ADDRESS = 0x62
+ 
+# Initialize the I2C bus
+bus = smbus.SMBus(1)
+ 
+def send_command(cmd):
+	"""Send a command to the LCD."""
+	bus.write_byte_data(LCD_ADDRESS, 0x00, cmd)
+ 
+def send_data(data):
+	"""Send data to the LCD."""
+	bus.write_byte_data(LCD_ADDRESS, 0x40, data)
+ 
+def set_rgb(r, g, b):
+	"""Set the backlight color of the LCD."""
+	bus.write_byte_data(RGB_ADDRESS, 0x00, 0x00)
+	bus.write_byte_data(RGB_ADDRESS, 0x01, 0x00)
+	bus.write_byte_data(RGB_ADDRESS, 0x08, 0xAA)
+	bus.write_byte_data(RGB_ADDRESS, 0x04, r)
+	bus.write_byte_data(RGB_ADDRESS, 0x03, g)
+	bus.write_byte_data(RGB_ADDRESS, 0x02, b)
+ 
+def initialize_lcd():
+	"""Initialize the LCD."""
+	send_command(0x01)  # Clear display
+	time.sleep(0.05)
+	send_command(0x38)  # Function set: 8-bit, 2 lines
+	send_command(0x0C)  # Display ON, Cursor OFF, Blink OFF
+	send_command(0x06)  # Entry mode set: increment, no shift
+	time.sleep(0.05)
+ 
+def write_message(line1, line2):
+	"""Write a message to the LCD."""
+	send_command(0x80)  # Move cursor to the beginning of the first line
+	for char in line1:
+    	send_data(ord(char))  # Send each character as data to the LCD
+	
+	send_command(0xC0)  # Move cursor to the beginning of the second line
+	for char in line2:
+    	send_data(ord(char))  # Send each character as data to the LCD
+ 
+if __name__ == "__main__":
+	try:
+    	initialize_lcd()
+    	set_rgb(0, 255, 255)  # Set backlight to greenish color
+    	write_message("Hello", "World")  # Display message
+    	while True:
+        	time.sleep(1)
+	except KeyboardInterrupt:
+    	send_command(0x01)  # Clear display
+    	set_rgb(0, 0, 0)  # Turn off backlight
+	print("Exiting...")
