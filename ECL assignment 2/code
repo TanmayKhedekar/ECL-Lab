@@ -1,0 +1,81 @@
+Experiment Title: Real-Time Temperature and Humidity Monitoring using DHT11 Sensor and Flask 
+
+
+Python program for flask application and DHT11 integration: 
+
+from flask import Flask, render_template, jsonify
+
+import adafruit_dht
+import board
+
+app = Flask(__name__)
+DHT_SENSOR_PIN = board.D4  # GPIO4
+
+def read_dht_sensor():
+    dht_sensor = adafruit_dht.DHT11(DHT_SENSOR_PIN)
+    try:
+        temperature = dht_sensor.temperature
+        humidity = dht_sensor.humidity
+        return temperature, humidity
+    except RuntimeError:
+        return None, None
+    finally:
+        dht_sensor.exit()
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/sensor-data')
+def sensor_data():
+    temperature, humidity = read_dht_sensor()
+    if temperature is not None and humidity is not None:
+        data = {
+            "temperature": f"{temperature:.1f} °C",
+            "humidity": f"{humidity:.1f} %"
+        }
+    else:
+        data = {"error": "Unable to read sensor data."}
+ return jsonify(data)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=False)
+
+
+
+
+Index.html:
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Temperature and Humidity</title>
+  <script>
+    function updateSensorData() {
+      fetch('/sensor-data')
+        .then(response => response.json())
+        .then(data => {
+          if (data.error) {
+            document.getElementById('temperature').innerText = data.error;
+            document.getElementById('humidity').innerText = '';
+          } else {
+            document.getElementById('temperature').innerText = "Temperature: " + data.temperature;
+            document.getElementById('humidity').innerText = "Humidity: " + data.humidity;
+          }
+        })
+        .catch(error => console.error('Error fetching sensor data:', error));
+    }
+
+    // Refresh sensor data every 2 seconds
+    setInterval(updateSensorData, 2000);
+    window.onload = updateSensorData;
+  </script>
+</head>
+<body>
+  <h1>Temperature and Humidity</h1>
+  <p id="temperature">Loading...</p>
+  <p id="humidity"></p>
+</body>
+</html>
