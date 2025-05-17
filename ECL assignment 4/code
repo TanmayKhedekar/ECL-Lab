@@ -1,0 +1,60 @@
+Title
+Setting Up MQTT Broker on Raspberry Pi and Reading DHT11 Sensor Data and MQ9 Sensor
+
+
+Program:
+
+import time
+import Adafruit_DHT
+import RPi.GPIO as GPIO
+import paho.mqtt.client as mqtt
+
+# --- Configuration ---
+MQTT_BROKER = "localhost"       # Replace with your broker IP
+MQTT_PORT = 1883
+MQTT_TOPIC = "sensor/data"
+
+DHT_SENSOR = Adafruit_DHT.DHT11
+DHT_PIN = 4                     # GPIO4 for DHT11
+MQ9_PIN = 17                    # GPIO17 for MQ9 Digital Output
+
+# --- GPIO Setup ---
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(MQ9_PIN, GPIO.IN)
+
+# --- MQTT Setup ---
+client = mqtt.Client("RPi_SensorPublisher")
+
+def connect_mqtt():
+    try:
+        client.connect(MQTT_BROKER, MQTT_PORT, 60)
+        print("Connected to MQTT Broker!")
+    except Exception as e:
+        print(f"Connection Failed: {e}")
+        exit(1)
+
+connect_mqtt()
+
+# --- Main Loop ---
+try:
+   while True:
+        humidity, temperature = Adafruit_DHT.read(DHT_SENSOR, DHT_PIN)
+        mq9_status = GPIO.input(MQ9_PIN)
+
+        if humidity is not None and temperature is not None:
+            sensor_data = {
+                "temperature": temperature,
+                "humidity": humidity,
+                "gas_detected": "Yes" if mq9_status == 0 else "No"
+            }
+            msg = f"{sensor_data}"
+            print("Publishing:", msg)
+            client.publish(MQTT_TOPIC, msg)
+        else:
+            print("Sensor failure. Check wiring.")
+
+        time.sleep(5)
+
+except KeyboardInterrupt:
+    print("Exiting...")
+    GPIO.cleanup()
